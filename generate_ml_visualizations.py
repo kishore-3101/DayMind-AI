@@ -15,11 +15,22 @@ from sklearn.metrics import roc_curve, auc, confusion_matrix
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASET_PATH = os.path.join(BASE_DIR, "task_dataset.csv")
-ARTIFACTS_DIR = "/home/kishore/.gemini/antigravity-ide/brain/facf97bb-5948-4c5c-a154-a61139f7de60"
-os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 
-# Set high-quality styling
-plt.style.use('seaborn-v0_8-darkgrid')
+# Project folder evaluated_images
+PROJECT_EVAL_DIR = os.path.join(BASE_DIR, "evaluated_images")
+os.makedirs(PROJECT_EVAL_DIR, exist_ok=True)
+
+# Artifact directory evaluated_images
+ARTIFACTS_DIR = "/home/kishore/.gemini/antigravity-ide/brain/facf97bb-5948-4c5c-a154-a61139f7de60"
+ARTIFACT_EVAL_DIR = os.path.join(ARTIFACTS_DIR, "evaluated_images")
+os.makedirs(ARTIFACT_EVAL_DIR, exist_ok=True)
+
+def save_dual_figure(fig, filename):
+    p1 = os.path.join(PROJECT_EVAL_DIR, filename)
+    p2 = os.path.join(ARTIFACT_EVAL_DIR, filename)
+    fig.savefig(p1, dpi=300, bbox_inches='tight')
+    fig.savefig(p2, dpi=300, bbox_inches='tight')
+    print(f"Saved: {p1} AND {p2}")
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.size'] = 11
 
@@ -96,11 +107,9 @@ ax.yaxis.label.set_color('white')
 ax.title.set_color('white')
 ax.grid(True, linestyle='--', alpha=0.3)
 
-roc_img_path = os.path.join(ARTIFACTS_DIR, "roc_curve_comparison.png")
 plt.tight_layout()
-plt.savefig(roc_img_path, dpi=300)
+save_dual_figure(fig, "roc_curve_comparison.png")
 plt.close()
-print(f"Saved ROC Curve: {roc_img_path}")
 
 
 # --- 2. CONFUSION MATRIX CHART ---
@@ -110,7 +119,7 @@ rf_pred = rf_model.predict(X_test_prep)
 cm = confusion_matrix(y_test, rf_pred)
 
 sns.heatmap(cm, annot=True, fmt='d', cmap='Purples', cbar=False, ax=ax,
-            annot_kws={"size": 16, "weight": "bold", "color": "white"})
+            annot_kws={"size": 18, "weight": "bold", "color": "black"})
 
 ax.set_xticklabels(['Predicted Incomplete (0)', 'Predicted Completed (1)'], fontweight='bold', color='white')
 ax.set_yticklabels(['Actual Incomplete (0)', 'Actual Completed (1)'], fontweight='bold', color='white')
@@ -118,11 +127,9 @@ ax.set_title('Confusion Matrix - Random Forest Completion Classifier', fontsize=
 ax.set_facecolor('#0f172a')
 fig.patch.set_facecolor('#0f172a')
 
-cm_img_path = os.path.join(ARTIFACTS_DIR, "confusion_matrix.png")
 plt.tight_layout()
-plt.savefig(cm_img_path, dpi=300)
+save_dual_figure(fig, "confusion_matrix.png")
 plt.close()
-print(f"Saved Confusion Matrix: {cm_img_path}")
 
 
 # --- 3. FEATURE IMPORTANCE CHART ---
@@ -149,11 +156,9 @@ ax.tick_params(colors='white')
 ax.xaxis.label.set_color('white')
 ax.grid(True, linestyle='--', alpha=0.3)
 
-feat_img_path = os.path.join(ARTIFACTS_DIR, "feature_importance.png")
 plt.tight_layout()
-plt.savefig(feat_img_path, dpi=300)
+save_dual_figure(fig, "feature_importance.png")
 plt.close()
-print(f"Saved Feature Importance Chart: {feat_img_path}")
 
 
 # --- 4. PREPROCESSING PIPELINE INFOGRAPHIC ---
@@ -180,8 +185,6 @@ ax.text(0.05, 0.95, text_content, transform=ax.transAxes, fontsize=11,
         fontfamily='monospace', color='#e2e8f0', verticalalignment='top',
         bbox=dict(boxstyle='round,pad=1', facecolor='#1e293b', edgecolor='#6366f1', lw=2))
 
-prep_img_path = os.path.join(ARTIFACTS_DIR, "preprocessing_pipeline.png")
 plt.tight_layout()
-plt.savefig(prep_img_path, dpi=300)
+save_dual_figure(fig, "preprocessing_pipeline.png")
 plt.close()
-print(f"Saved Preprocessing Diagram: {prep_img_path}")
