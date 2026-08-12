@@ -1,0 +1,121 @@
+{
+  "split_info": {
+    "train_percentage": 75,
+    "test_percentage": 25,
+    "train_samples": 900,
+    "test_samples": 300
+  },
+  "duration_regressor": {
+    "mae_minutes": 6.45,
+    "model_type": "RandomForestRegressor(n_estimators=200)",
+    "train_samples": 900,
+    "test_samples": 300
+  },
+  "completion_classifier": {
+    "accuracy": 0.7533,
+    "precision": 0.7206,
+    "recall": 0.7533,
+    "f1_score": 0.7307,
+    "model_type": "RandomForestClassifier(n_estimators=200)",
+    "train_samples": 900,
+    "test_samples": 300
+  },
+  "dataset": {
+    "total_samples": 1200,
+    "categories": [
+      "academic",
+      "work",
+      "learning",
+      "health",
+      "personal"
+    ],
+    "priorities": [
+      "high",
+      "medium",
+      "low"
+    ]
+  },
+  "feature_importances": [
+    {
+      "feature": "estimated_duration",
+      "importance": 0.36741082181060963
+    },
+    {
+      "feature": "hour_slot",
+      "importance": 0.31692423730438407
+    },
+    {
+      "feature": "priority_high",
+      "importance": 0.029055811709771506
+    },
+    {
+      "feature": "priority_low",
+      "importance": 0.028075229838523355
+    },
+    {
+      "feature": "day_of_week_Tue",
+      "importance": 0.021708669910390558
+    },
+    {
+      "feature": "day_of_week_Fri",
+      "importance": 0.020563165746559003
+    },
+    {
+      "feature": "category_work",
+      "importance": 0.020409179399879056
+    },
+    {
+      "feature": "category_academic",
+      "importance": 0.020353376049610506
+    },
+    {
+      "feature": "priority_medium",
+      "importance": 0.020136860818554776
+    },
+    {
+      "feature": "day_of_week_Thu",
+      "importance": 0.019910162209553574
+    },
+    {
+      "feature": "category_health",
+      "importance": 0.01893671347033537
+    },
+    {
+      "feature": "day_of_week_Mon",
+      "importance": 0.01786241456135263
+    },
+    {
+      "feature": "category_learning",
+      "importance": 0.017812896336000243
+    },
+    {
+      "feature": "day_of_week_Wed",
+      "importance": 0.017774768761932284
+    },
+    {
+      "feature": "category_personal",
+      "importance": 0.017280385654097574
+    },
+    {
+      "feature": "is_weekend",
+      "importance": 0.016578901551956585
+    },
+    {
+      "feature": "day_of_week_Sat",
+      "importance": 0.015859026081532685
+    },
+    {
+      "feature": "day_of_week_Sun",
+      "importance": 0.01334737878495664
+    }
+  ],
+  "text_classifier": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "model_type": "TfidfVectorizer + LogisticRegression",
+    "train_samples": 900,
+    "test_samples": 300
+  }
+}

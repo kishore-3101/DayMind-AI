@@ -1,231 +1,287 @@
 import React, { useState, useEffect } from 'react';
-import Papa from 'papaparse';
-import { Calendar as CalendarIcon, ListTodo, Zap, Clock, Sparkles, AlertCircle, RefreshCw, Layers } from 'lucide-react';
-import CalendarView from './components/CalendarView.jsx';
-import ScheduleList from './components/ScheduleList.jsx';
-import UrgentTaskModal from './components/UrgentTaskModal.jsx';
-import ReplanningLogBar from './components/ReplanningLogBar.jsx';
-import { buildSmartSchedule, replanWithUrgentTask } from './utils/schedulerEngine.js';
+import Header from './components/Header';
+import TaskForm from './components/TaskForm';
+import WeeklyCalendar from './components/WeeklyCalendar';
+import DailyToDo from './components/DailyToDo';
+import UrgentReplanBanner from './components/UrgentReplanBanner';
+import MLInsightsModal from './components/MLInsightsModal';
+import LearningGoalWizardModal from './components/LearningGoalWizardModal';
+import DayAgendaModal from './components/DayAgendaModal';
+import { Calendar as CalendarIcon, CheckSquare, Sparkles } from 'lucide-react';
 
 export default function App() {
-  const [userConcern, setUserConcern] = useState('Preparing for ML midterms while managing client web project');
-  const [startHour, setStartHour] = useState(8);
-  const [endHour, setEndHour] = useState(20);
-  const [numDays, setNumDays] = useState(5);
+  const [tasks, setTasks] = useState([]);
+  const [calendarData, setCalendarData] = useState(null);
+  const [replanData, setReplanData] = useState(null);
+  const [isMLInsightsOpen, setIsMLInsightsOpen] = useState(false);
+  
+  // Date Navigation State
+  const [currentStartDateStr, setCurrentStartDateStr] = useState(null);
+  
+  // Selected Day Agenda Drawer State
+  const [selectedDateInfo, setSelectedDateInfo] = useState(null);
+  const [isDayAgendaOpen, setIsDayAgendaOpen] = useState(false);
 
-  const [schedule, setSchedule] = useState([]);
-  const [replanningLogs, setReplanningLogs] = useState([]);
-  const [activeView, setActiveView] = useState('calendar');
-  const [datasetLoaded, setDatasetLoaded] = useState(false);
+  // Learning Goal Wizard state
+  const [isLearningWizardOpen, setIsLearningWizardOpen] = useState(false);
+  const [wizardInitialTopic, setWizardInitialTopic] = useState('');
 
-  // Load dataset.csv to verify dataset presence
+  const [activeTab, setActiveTab] = useState('calendar'); // 'calendar' | 'todo'
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRebalancing, setIsRebalancing] = useState(false);
+
   useEffect(() => {
-    Papa.parse('/dataset.csv', {
-      download: true,
-      header: true,
-      dynamicTyping: true,
-      complete: (results) => {
-        if (results.data && results.data.length > 0) {
-          setDatasetLoaded(true);
-        }
+    fetchCalendarAndTasks(currentStartDateStr);
+  }, [currentStartDateStr]);
+
+  const fetchCalendarAndTasks = async (startDate = null) => {
+    setIsLoading(true);
+    try {
+      const url = startDate ? `/api/calendar?start_date=${startDate}` : '/api/calendar';
+      const [calRes, tasksRes] = await Promise.all([
+        fetch(url),
+        fetch('/api/tasks')
+      ]);
+      const calData = await calRes.json();
+      const tData = await tasksRes.json();
+      setCalendarData(calData);
+      setTasks(tData.tasks || []);
+    } catch (err) {
+      console.error('Failed to fetch app data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNavigateWeek = (offsetDays) => {
+    const baseDate = calendarData?.start_date ? new Date(calendarData.start_date) : new Date();
+    baseDate.setDate(baseDate.getDate() + offsetDays);
+    const dateStr = baseDate.toISOString().split('T')[0];
+    setCurrentStartDateStr(dateStr);
+  };
+
+  const handleSetToday = () => {
+    setCurrentStartDateStr(null);
+  };
+
+  const handleSelectDate = (dateInfo) => {
+    setSelectedDateInfo(dateInfo);
+    setIsDayAgendaOpen(true);
+  };
+
+  const handleOpenLearningWizard = (initialTopic = '') => {
+    setWizardInitialTopic(initialTopic);
+    setIsLearningWizardOpen(true);
+  };
+
+  const handleBatchScheduleSuccess = async () => {
+    await fetchCalendarAndTasks(currentStartDateStr);
+  };
+
+  const handleAddTask = async (taskInput) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(taskInput)
+      });
+      if (res.ok) {
+        await fetchCalendarAndTasks(currentStartDateStr);
       }
-    });
-  }, []);
-
-  // Initial schedule generation
-  const handleGenerateSchedule = (e) => {
-    if (e) e.preventDefault();
-    if (!userConcern.trim()) return;
-
-    const newSchedule = buildSmartSchedule({
-      concernText: userConcern,
-      startHour: Number(startHour),
-      endHour: Number(endHour),
-      totalDays: Number(numDays)
-    });
-
-    setSchedule(newSchedule);
-    setReplanningLogs([]);
+    } catch (err) {
+      console.error('Failed to add task:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Auto-generate initial schedule on load
-  useEffect(() => {
-    handleGenerateSchedule();
-  }, []);
-
-  // Handle Dynamic Urgent Task Injection
-  const handleInjectUrgentTask = (urgentTask) => {
-    if (!schedule || schedule.length === 0) return;
-
-    const { updatedSchedule, logs } = replanWithUrgentTask({
-      schedule,
-      urgentTask,
-      startHour: Number(startHour),
-      endHour: Number(endHour)
-    });
-
-    setSchedule(updatedSchedule);
-    setReplanningLogs(prev => [...logs, ...prev]);
+  const handleAddUrgentTask = async (urgentInput) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/tasks/urgent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(urgentInput)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setReplanData(data.replan_summary);
+        await fetchCalendarAndTasks(currentStartDateStr);
+      }
+    } catch (err) {
+      console.error('Failed to add urgent task:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Toggle task completion
-  const handleToggleComplete = (taskId) => {
-    setSchedule(prev => prev.map(item => item.id === taskId ? { ...item, completed: !item.completed } : item));
+  const handleToggleTask = async (taskId) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/toggle`, {
+        method: 'PATCH'
+      });
+      if (res.ok) {
+        await fetchCalendarAndTasks(currentStartDateStr);
+      }
+    } catch (err) {
+      console.error('Failed to toggle task:', err);
+    }
   };
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        await fetchCalendarAndTasks(currentStartDateStr);
+      }
+    } catch (err) {
+      console.error('Failed to delete task:', err);
+    }
+  };
+
+  const handleRebalance = async () => {
+    setIsRebalancing(true);
+    try {
+      const res = await fetch('/api/schedule/rebalance', {
+        method: 'POST'
+      });
+      if (res.ok) {
+        await fetchCalendarAndTasks(currentStartDateStr);
+      }
+    } catch (err) {
+      console.error('Failed to rebalance schedule:', err);
+    } finally {
+      setIsRebalancing(false);
+    }
+  };
+
+  const handleSeedDemo = async () => {
+    try {
+      const res = await fetch('/api/seed-demo', {
+        method: 'POST'
+      });
+      if (res.ok) {
+        await fetchCalendarAndTasks(currentStartDateStr);
+      }
+    } catch (err) {
+      console.error('Failed to seed demo data:', err);
+    }
+  };
+
+  const totalTasks = calendarData?.total_tasks || 0;
+  const completedTasks = calendarData?.completed_tasks || 0;
+
+  // Filter tasks for selected date in Day Agenda Modal
+  const dateTasks = selectedDateInfo
+    ? tasks.filter((t) => (t.task_date || t.created_at?.split('T')[0]) === selectedDateInfo.date)
+    : [];
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Top Header */}
-      <header className="glass-panel" style={{ borderRadius: 0, borderTop: 0, borderLeft: 0, borderRight: 0, padding: '16px 32px', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {/* Logo & Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #6366f1, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)' }}>
-              <CalendarIcon size={22} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }} className="gradient-text">
-                  DayMind AI
-                </h1>
-                <span className="badge badge-cat">Smart Calendar & Task Scheduler</span>
-              </div>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Powered by <code>dataset.csv</code> historical duration & completion patterns
-              </p>
-            </div>
-          </div>
+    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
+      {/* Top Header Navbar */}
+      <Header
+        totalTasks={totalTasks}
+        completedTasks={completedTasks}
+        onOpenMLInsights={() => setIsMLInsightsOpen(true)}
+        onOpenLearningWizard={() => handleOpenLearningWizard('')}
+        onSeedDemo={handleSeedDemo}
+        onRebalance={handleRebalance}
+        isRebalancing={isRebalancing}
+      />
 
-          {/* Nav Tabs */}
-          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(10, 14, 23, 0.7)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
-            <button
-              className="btn-secondary"
-              style={{ border: 'none', background: activeView === 'calendar' ? 'rgba(99, 102, 241, 0.25)' : 'transparent', color: activeView === 'calendar' ? '#ffffff' : 'var(--text-muted)' }}
-              onClick={() => setActiveView('calendar')}
-            >
-              <CalendarIcon size={16} />
-              Timetable Calendar
-            </button>
+      {/* Dynamic Urgent Replanning Banner */}
+      <UrgentReplanBanner
+        replanData={replanData}
+        onClose={() => setReplanData(null)}
+      />
 
-            <button
-              className="btn-secondary"
-              style={{ border: 'none', background: activeView === 'todo' ? 'rgba(99, 102, 241, 0.25)' : 'transparent', color: activeView === 'todo' ? '#ffffff' : 'var(--text-muted)' }}
-              onClick={() => setActiveView('todo')}
-            >
-              <ListTodo size={16} />
-              Day-to-Day Schedule List
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Main Task Concern Scheduler Input Form */}
+      <TaskForm
+        onAddTask={handleAddTask}
+        onAddUrgentTask={handleAddUrgentTask}
+        onOpenLearningWizard={handleOpenLearningWizard}
+        isSubmitting={isSubmitting}
+      />
 
-      {/* Main Workspace Layout */}
-      <main style={{ flex: 1, maxWidth: '1400px', width: '100%', margin: '0 auto', padding: '24px', display: 'grid', gridTemplateColumns: '360px 1fr', gap: '24px' }}>
-        
-        {/* Left Sidebar: Controls & Urgent Injector */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          {/* User Concern & Time Config Panel */}
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={18} color="#a5b4fc" />
-              <span>User Goal & Concern</span>
-            </h3>
+      {/* View Switcher Tabs */}
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          onClick={() => setActiveTab('calendar')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
+            activeTab === 'calendar'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30'
+              : 'glass-card text-slate-400 hover:text-white'
+          }`}
+        >
+          <CalendarIcon className="w-4 h-4" />
+          Weekly Calendar View
+        </button>
 
-            <form onSubmit={handleGenerateSchedule} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  What is your primary goal or concern?
-                </label>
-                <textarea
-                  className="input-field"
-                  rows="3"
-                  value={userConcern}
-                  onChange={e => setUserConcern(e.target.value)}
-                  placeholder="e.g. Preparing for exams, managing work deadlines & workout..."
-                  style={{ resize: 'vertical' }}
-                />
-              </div>
+        <button
+          onClick={() => setActiveTab('todo')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
+            activeTab === 'todo'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30'
+              : 'glass-card text-slate-400 hover:text-white'
+          }`}
+        >
+          <CheckSquare className="w-4 h-4" />
+          Day-by-Day To-Do Schedule ({tasks.length})
+        </button>
+      </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    Available Start
-                  </label>
-                  <select className="select-field" style={{ width: '100%' }} value={startHour} onChange={e => setStartHour(Number(e.target.value))}>
-                    {Array.from({ length: 12 }, (_, i) => i + 6).map(h => (
-                      <option key={h} value={h}>{String(h).padStart(2, '0')}:00 AM</option>
-                    ))}
-                  </select>
-                </div>
+      {/* Active Tab View Content */}
+      {activeTab === 'calendar' ? (
+        <WeeklyCalendar
+          calendarData={calendarData}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={handleDeleteTask}
+          onNavigateWeek={handleNavigateWeek}
+          onSetToday={handleSetToday}
+          onSelectDate={handleSelectDate}
+        />
+      ) : (
+        <DailyToDo
+          tasks={tasks}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={handleDeleteTask}
+        />
+      )}
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    Available End
-                  </label>
-                  <select className="select-field" style={{ width: '100%' }} value={endHour} onChange={e => setEndHour(Number(e.target.value))}>
-                    {Array.from({ length: 10 }, (_, i) => i + 15).map(h => (
-                      <option key={h} value={h}>{h > 12 ? h - 12 : h}:00 PM</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+      {/* ML Evaluation Insights Dashboard Modal */}
+      <MLInsightsModal
+        isOpen={isMLInsightsOpen}
+        onClose={() => setIsMLInsightsOpen(false)}
+      />
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  Target Horizon (Days): {numDays} Days
-                </label>
-                <input
-                  type="range"
-                  min="3"
-                  max="7"
-                  value={numDays}
-                  onChange={e => setNumDays(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: 'var(--primary-violet)' }}
-                />
-              </div>
+      {/* Multi-Day Learning Goal Planner Wizard Modal */}
+      <LearningGoalWizardModal
+        isOpen={isLearningWizardOpen}
+        onClose={() => setIsLearningWizardOpen(false)}
+        initialTopic={wizardInitialTopic}
+        onBatchScheduleSuccess={handleBatchScheduleSuccess}
+      />
 
-              <button type="submit" className="btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '6px' }}>
-                <Sparkles size={16} />
-                Generate Smart Timetable
-              </button>
-            </form>
-          </div>
+      {/* Google Calendar Style Interactive Day Agenda Modal */}
+      <DayAgendaModal
+        isOpen={isDayAgendaOpen}
+        onClose={() => setIsDayAgendaOpen(false)}
+        dateInfo={selectedDateInfo}
+        tasks={dateTasks}
+        onToggleTask={handleToggleTask}
+        onDeleteTask={handleDeleteTask}
+      />
 
-          {/* Urgent Task Injector Panel */}
-          <UrgentTaskModal onInjectUrgentTask={handleInjectUrgentTask} maxDays={numDays} />
-        </div>
-
-        {/* Right Main Panel: Replanning Feed & Calendar/Schedule Views */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          
-          {/* Dynamic Replanning Log Banner */}
-          <ReplanningLogBar logs={replanningLogs} />
-
-          {/* Active View */}
-          {activeView === 'calendar' ? (
-            <CalendarView
-              schedule={schedule}
-              onToggleComplete={handleToggleComplete}
-              startHour={startHour}
-              endHour={endHour}
-            />
-          ) : (
-            <ScheduleList
-              schedule={schedule}
-              onToggleComplete={handleToggleComplete}
-            />
-          )}
-        </div>
-
-      </main>
-
-      {/* Footer */}
-      <footer style={{ borderTop: '1px solid var(--border-subtle)', padding: '16px 32px', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)', background: 'rgba(7, 9, 14, 0.9)' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <span>DayMind AI — Smart Task Scheduling & Dynamic Urgent Task Replanner</span>
-          <span style={{ fontFamily: 'var(--font-mono)' }}>Data Source: dataset.csv (1,200 records loaded)</span>
-        </div>
+      {/* Footer / Hosting Info */}
+      <footer className="text-center text-xs text-slate-500 py-6 border-t border-white/5 mt-8">
+        <p>
+          DayMind AI • Machine Learning Subject Project • Built with Scikit-Learn, FastAPI, React & SQLite
+        </p>
       </footer>
     </div>
   );
