@@ -10,7 +10,16 @@ import json
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "daymind.db")
+
+# Vercel Serverless environment fallback
+if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+    DB_PATH = "/tmp/daymind.db"
+    orig_db = os.path.join(BASE_DIR, "daymind.db")
+    if not os.path.exists(DB_PATH) and os.path.exists(orig_db):
+        import shutil
+        shutil.copyfile(orig_db, DB_PATH)
+else:
+    DB_PATH = os.path.join(BASE_DIR, "daymind.db")
 
 
 def get_db_connection():

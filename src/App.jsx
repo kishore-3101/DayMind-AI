@@ -36,6 +36,50 @@ export default function App() {
     fetchCalendarAndTasks(currentStartDateStr);
   }, [currentStartDateStr]);
 
+  const buildFallbackCalendar = (startDateStr = null) => {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const workHours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Calculate Monday of week
+    const dayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
+    const startDt = startDateStr ? new Date(startDateStr) : new Date(today.setDate(today.getDate() - dayOfWeek));
+    
+    const datesList = [];
+    const grid = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startDt);
+      d.setDate(d.getDate() + i);
+      const dStr = d.toISOString().split('T')[0];
+      const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+      const dayName = days[dayIdx];
+      const monthName = d.toLocaleString('en-US', { month: 'short' });
+      datesList.push({
+        date: dStr,
+        day_name: dayName,
+        formatted: `${monthName} ${d.getDate()}`,
+        full_formatted: `${d.toLocaleString('en-US', { weekday: 'long' })}, ${monthName} ${d.getDate()}`,
+        day_num: d.getDate(),
+        is_today: dStr === todayStr,
+        is_weekend: d.getDay() === 0 || d.getDay() === 6
+      });
+      grid[dStr] = {};
+      workHours.forEach(h => grid[dStr][h] = null);
+    }
+    
+    return {
+      start_date: startDt.toISOString().split('T')[0],
+      header_title: "Weekly Calendar Schedule",
+      dates: datesList,
+      days: days,
+      work_hours: workHours,
+      calendar: grid,
+      total_tasks: 0,
+      completed_tasks: 0
+    };
+  };
+
   const fetchCalendarAndTasks = async (startDate = null) => {
     setIsLoading(true);
     try {
@@ -44,12 +88,23 @@ export default function App() {
         fetch(url),
         fetch('/api/tasks')
       ]);
-      const calData = await calRes.json();
-      const tData = await tasksRes.json();
-      setCalendarData(calData);
-      setTasks(tData.tasks || []);
+
+      if (calRes.ok && tasksRes.ok) {
+        const calData = await calRes.json();
+        const tData = await tasksRes.json();
+        if (calData && calData.calendar) {
+          setCalendarData(calData);
+        } else {
+          setCalendarData(buildFallbackCalendar(startDate));
+        }
+        setTasks(tData.tasks || []);
+      } else {
+        console.warn('API returned non-ok status, utilizing client fallback');
+        setCalendarData(buildFallbackCalendar(startDate));
+      }
     } catch (err) {
       console.error('Failed to fetch app data:', err);
+      setCalendarData(buildFallbackCalendar(startDate));
     } finally {
       setIsLoading(false);
     }

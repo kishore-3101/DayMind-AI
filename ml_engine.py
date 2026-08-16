@@ -16,6 +16,8 @@ import database as db
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "models")
+if not os.path.exists(MODELS_DIR):
+    MODELS_DIR = os.path.join(os.path.dirname(BASE_DIR), "models")
 
 TEXT_MODEL_PATH = os.path.join(MODELS_DIR, "text_category_model.pkl")
 DURATION_MODEL_PATH = os.path.join(MODELS_DIR, "duration_model.pkl")
@@ -28,7 +30,7 @@ try:
     completion_model = joblib.load(COMPLETION_MODEL_PATH)
     print("[ML Engine] All models loaded successfully.")
 except Exception as e:
-    print(f"[ML Engine ERROR] Could not load ML models: {e}")
+    print(f"[ML Engine WARNING] ML model load fallback activated: {e}")
     text_model = None
     duration_model = None
     completion_model = None
