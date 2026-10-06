@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
-import TaskForm from './components/TaskForm';
 import WeeklyCalendar from './components/WeeklyCalendar';
 import DailyToDo from './components/DailyToDo';
 import UrgentReplanBanner from './components/UrgentReplanBanner';
@@ -131,7 +130,10 @@ export default function App() {
     setIsLearningWizardOpen(true);
   };
 
-  const handleBatchScheduleSuccess = async () => {
+  const handleBatchScheduleSuccess = async (data) => {
+    if (data && data.replan_summary) {
+      setReplanData(data.replan_summary);
+    }
     await fetchCalendarAndTasks(currentStartDateStr);
   };
 
@@ -244,9 +246,6 @@ export default function App() {
         completedTasks={completedTasks}
         onOpenMLInsights={() => setIsMLInsightsOpen(true)}
         onOpenLearningWizard={() => handleOpenLearningWizard('')}
-        onSeedDemo={handleSeedDemo}
-        onRebalance={handleRebalance}
-        isRebalancing={isRebalancing}
       />
 
       {/* Dynamic Urgent Replanning Banner */}
@@ -255,22 +254,14 @@ export default function App() {
         onClose={() => setReplanData(null)}
       />
 
-      {/* Main Task Concern Scheduler Input Form */}
-      <TaskForm
-        onAddTask={handleAddTask}
-        onAddUrgentTask={handleAddUrgentTask}
-        onOpenLearningWizard={handleOpenLearningWizard}
-        isSubmitting={isSubmitting}
-      />
-
       {/* View Switcher Tabs */}
       <div className="flex items-center gap-2 mb-4">
         <button
           onClick={() => setActiveTab('calendar')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
+          className={`px-4 py-2 text-xs font-semibold rounded-xl transition flex items-center gap-2 ${
             activeTab === 'calendar'
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30'
-              : 'glass-card text-slate-400 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           }`}
         >
           <CalendarIcon className="w-4 h-4" />
@@ -279,10 +270,10 @@ export default function App() {
 
         <button
           onClick={() => setActiveTab('todo')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition flex items-center gap-2 ${
+          className={`px-4 py-2 text-xs font-semibold rounded-xl transition flex items-center gap-2 ${
             activeTab === 'todo'
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30'
-              : 'glass-card text-slate-400 hover:text-white'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           }`}
         >
           <CheckSquare className="w-4 h-4" />
@@ -333,7 +324,7 @@ export default function App() {
       />
 
       {/* Footer / Hosting Info */}
-      <footer className="text-center text-xs text-slate-500 py-6 border-t border-white/5 mt-8">
+      <footer className="text-center text-xs text-slate-500 py-6 border-t border-slate-200 mt-8">
         <p>
           DayMind AI • Machine Learning Subject Project • Built with Scikit-Learn, FastAPI, React & SQLite
         </p>

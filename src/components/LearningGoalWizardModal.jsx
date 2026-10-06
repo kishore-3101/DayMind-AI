@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Calendar, Clock, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Flame, Tag, Layers, Check } from 'lucide-react';
+import { X, Calendar, Clock, ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Flame, Tag, Check, Zap } from 'lucide-react';
 
 export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic, onBatchScheduleSuccess }) {
-  const [step, setStep] = useState(1); // 1: Topic, 2: Days & Hours, 3: Roadmap Preview, 4: Success
+  const [step, setStep] = useState(1); // 1: Topic/Goal, 2: Parameters, 3: Syllabus Preview, 4: Success
   const [topic, setTopic] = useState(initialTopic || '');
   const [numDays, setNumDays] = useState(14);
   const [hoursPerDay, setHoursPerDay] = useState(1.5);
   const [priority, setPriority] = useState('medium');
   const [timePreference, setTimePreference] = useState('Evening');
+  const [isUrgent, setIsUrgent] = useState(false);
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScheduling, setIsScheduling] = useState(false);
@@ -23,15 +24,15 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
   if (!isOpen) return null;
 
   const quickTopics = [
-    { label: '☕ Learn Java', query: 'I need to learn Java' },
-    { label: '🐍 Learn Python', query: 'Learn Python programming' },
-    { label: '⚛️ Learn React', query: 'Master React & Web Dev' },
-    { label: '⚡ DSA & Algorithms', query: 'Data Structures and Algorithms' },
-    { label: '📊 Machine Learning', query: 'Machine Learning Fundamentals' },
-    { label: '🗄️ SQL & Databases', query: 'Learn SQL & Database Querying' },
+    { label: 'Learn Java', query: 'I need to learn Java' },
+    { label: 'Learn Python', query: 'Learn Python programming' },
+    { label: 'Learn React', query: 'Master React & Web Dev' },
+    { label: 'DSA & Algorithms', query: 'Data Structures and Algorithms' },
+    { label: 'Machine Learning', query: 'Machine Learning Fundamentals' },
+    { label: 'SQL & Databases', query: 'Learn SQL & Database Querying' },
   ];
 
-  const quickDays = [7, 14, 20, 30];
+  const quickDays = [1, 7, 14, 20, 30];
   const quickHours = [0.5, 1.0, 1.5, 2.0, 3.0];
 
   const handleGeneratePlan = async () => {
@@ -45,7 +46,7 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
           topic: topic,
           num_days: Number(numDays),
           hours_per_day: Number(hoursPerDay),
-          priority: priority,
+          priority: isUrgent ? 'high' : priority,
           time_preference: timePreference
         })
       });
@@ -66,27 +67,48 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
     setModules(updated);
   };
 
-  const handleConfirmBatchSchedule = async () => {
+  const handleConfirmSchedule = async () => {
     if (!modules || modules.length === 0) return;
     setIsScheduling(true);
     try {
-      const res = await fetch('/api/tasks/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: topic,
-          priority: priority,
-          time_preference: timePreference,
-          modules: modules
-        })
-      });
-      const data = await res.json();
-      setStep(4);
-      if (onBatchScheduleSuccess) {
-        onBatchScheduleSuccess(data);
+      if (isUrgent) {
+        // Execute Urgent Dynamic Replanning
+        const res = await fetch('/api/tasks/urgent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task_text: topic,
+            num_days: Number(numDays),
+            hours_per_day: Number(hoursPerDay),
+            category: planData?.category || 'learning',
+            time_preference: timePreference
+          })
+        });
+        const data = await res.json();
+        setStep(4);
+        if (onBatchScheduleSuccess) {
+          onBatchScheduleSuccess(data);
+        }
+      } else {
+        // Standard ML batch schedule
+        const res = await fetch('/api/tasks/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: topic,
+            priority: priority,
+            time_preference: timePreference,
+            modules: modules
+          })
+        });
+        const data = await res.json();
+        setStep(4);
+        if (onBatchScheduleSuccess) {
+          onBatchScheduleSuccess(data);
+        }
       }
     } catch (err) {
-      console.error('Failed to batch schedule learning plan:', err);
+      console.error('Failed to schedule plan:', err);
     } finally {
       setIsScheduling(false);
     }
@@ -96,68 +118,64 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
     setStep(1);
     setPlanData(null);
     setModules([]);
+    setIsUrgent(false);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="glass-panel w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col border border-purple-500/30 shadow-2xl shadow-purple-900/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn">
+      <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border border-slate-200 shadow-xl">
         
         {/* Modal Header */}
-        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-slate-900/40">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-purple-600/30 border border-purple-400/40 text-purple-300">
-              <Sparkles className="w-6 h-6 animate-pulse" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                Multi-Day Learning Planner & AI Roadmap
-              </h2>
-              <p className="text-xs text-slate-400">
-                Step {step} of 3 • Custom goal, duration, hours budget & ML scheduling
-              </p>
-            </div>
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              Create Goal or Task Roadmap
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Step {step} of 3 • Set your objective, duration, hours budget, and priority
+            </p>
           </div>
 
           <button
             onClick={handleResetAndClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Step Indicator Progress Bar */}
-        <div className="w-full bg-slate-900 h-1.5 flex">
+        <div className="w-full bg-slate-100 h-1 flex">
           <div
-            className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full transition-all duration-300"
+            className="bg-indigo-600 h-full transition-all duration-300"
             style={{ width: `${(step / 3) * 100}%` }}
           />
         </div>
 
         {/* Modal Body Content */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-6 overflow-y-auto flex-1 space-y-5">
 
-          {/* STEP 1: Topic Selection */}
+          {/* STEP 1: Topic / Goal Input */}
           {step === 1 && (
-            <div className="space-y-6 animate-fadeIn">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-white mb-2">
-                  1. What would you like to learn or accomplish?
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  What is your learning goal or task objective?
                 </label>
                 <input
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  placeholder="e.g. I need to learn Java, Master Python Data Science, Learn React..."
-                  className="glass-input w-full text-base p-3 placeholder-slate-500"
+                  placeholder="e.g. Master Python Data Science, Learn React, Prepare ML Assignment..."
+                  className="w-full text-sm p-3 border border-slate-300 rounded-xl outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 text-slate-900 placeholder-slate-400"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-2.5">
-                  Popular Quick Templates:
+                <label className="block text-xs font-semibold text-slate-500 mb-2">
+                  Quick Templates:
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {quickTopics.map((item, idx) => (
@@ -165,10 +183,10 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
                       key={idx}
                       type="button"
                       onClick={() => setTopic(item.query)}
-                      className={`text-xs px-3 py-2 rounded-xl border transition flex items-center gap-1.5 ${
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer ${
                         topic === item.query
-                          ? 'bg-purple-600/40 text-purple-200 border-purple-400/60 shadow-lg shadow-purple-500/20'
-                          : 'glass-card text-slate-300 hover:border-white/20 hover:bg-white/5'
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       {item.label}
@@ -182,91 +200,91 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
                   type="button"
                   disabled={!topic.trim()}
                   onClick={() => setStep(2)}
-                  className="btn-primary text-sm px-5 py-2.5 disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                 >
-                  Next: Schedule Parameters
+                  <span>Next: Schedule Parameters</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 2: Duration, Hours, Priority & Time Pref */}
+          {/* STEP 2: Parameters & Urgent Replan Toggle */}
           {step === 2 && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/30 flex items-center justify-between text-xs text-purple-300">
-                <span className="font-semibold">Selected Topic:</span>
-                <span className="font-bold text-white text-sm bg-purple-900/60 px-3 py-1 rounded-lg border border-purple-400/40">
+            <div className="space-y-5">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-500">Objective:</span>
+                <span className="font-bold text-slate-900 bg-white px-2.5 py-1 rounded-md border border-slate-200">
                   {topic}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 {/* Number of Days */}
-                <div className="glass-card p-4 space-y-3">
-                  <label className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-purple-400" />
-                    Number of Days to Complete:
+                <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5">
+                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-indigo-600" />
+                    Duration (Days):
                   </label>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <input
                       type="number"
                       min={1}
                       max={60}
                       value={numDays}
                       onChange={(e) => setNumDays(e.target.value)}
-                      className="glass-input w-24 text-center font-mono font-bold text-base text-purple-200"
+                      className="w-20 text-center font-mono font-bold text-sm p-1.5 border border-slate-300 rounded-lg text-slate-900"
                     />
-                    <span className="text-xs text-slate-400">days in total</span>
+                    <span className="text-xs text-slate-500">{Number(numDays) === 1 ? 'day (Single Task)' : 'days total'}</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
+                  <div className="flex flex-wrap gap-1 pt-1">
                     {quickDays.map((d) => (
                       <button
                         key={d}
                         type="button"
                         onClick={() => setNumDays(d)}
-                        className={`text-xs px-2.5 py-1 rounded-lg border transition ${
+                        className={`text-xs px-2 py-1 rounded-md border transition cursor-pointer ${
                           Number(numDays) === d
-                            ? 'bg-purple-600/40 border-purple-400 text-purple-200 font-bold'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
                       >
-                        {d} Days
+                        {d} {d === 1 ? 'Day' : 'Days'}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Available Hours Per Day */}
-                <div className="glass-card p-4 space-y-3">
-                  <label className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-indigo-400" />
-                    Available Time per Day:
+                {/* Hours Per Day */}
+                <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5">
+                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-indigo-600" />
+                    Daily Time Budget:
                   </label>
-                  <div className="flex items-center gap-3">
+                  <div>
                     <select
                       value={hoursPerDay}
                       onChange={(e) => setHoursPerDay(e.target.value)}
-                      className="glass-input text-xs font-bold text-purple-200 cursor-pointer"
+                      className="w-full text-xs font-semibold text-slate-900 p-2 border border-slate-300 rounded-lg bg-white cursor-pointer"
                     >
-                      <option value={0.5} className="bg-slate-900">0.5 hr / day (30 mins)</option>
-                      <option value={1.0} className="bg-slate-900">1.0 hr / day (60 mins)</option>
-                      <option value={1.5} className="bg-slate-900">1.5 hrs / day (90 mins)</option>
-                      <option value={2.0} className="bg-slate-900">2.0 hrs / day (Deep Focus)</option>
-                      <option value={3.0} className="bg-slate-900">3.0 hrs / day (Intensive)</option>
+                      <option value={0.5}>0.5 hr / day (30 mins)</option>
+                      <option value={1.0}>1.0 hr / day (60 mins)</option>
+                      <option value={1.5}>1.5 hrs / day (Standard)</option>
+                      <option value={2.0}>2.0 hrs / day (Deep Focus)</option>
+                      <option value={3.0}>3.0 hrs / day (Intensive)</option>
                     </select>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
+                  <div className="flex flex-wrap gap-1 pt-1">
                     {quickHours.map((h) => (
                       <button
                         key={h}
                         type="button"
                         onClick={() => setHoursPerDay(h)}
-                        className={`text-xs px-2 py-1 rounded-lg border transition ${
+                        className={`text-xs px-2 py-0.5 rounded-md border transition cursor-pointer ${
                           Number(hoursPerDay) === h
-                            ? 'bg-indigo-600/40 border-indigo-400 text-indigo-200 font-bold'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
                       >
                         {h}h/day
@@ -276,23 +294,26 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
                 </div>
 
                 {/* Priority */}
-                <div className="glass-card p-4 space-y-2">
-                  <label className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Flame className="w-4 h-4 text-amber-400" />
+                <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Flame className="w-4 h-4 text-amber-500" />
                     Priority Level:
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { key: 'high', label: '🔴 High', style: 'border-red-500/50 text-red-300 bg-red-950/30' },
-                      { key: 'medium', label: '🟡 Medium', style: 'border-amber-500/50 text-amber-300 bg-amber-950/30' },
-                      { key: 'low', label: '🟢 Low', style: 'border-emerald-500/50 text-emerald-300 bg-emerald-950/30' }
+                      { key: 'high', label: 'High', style: 'border-red-200 text-red-700 bg-red-50' },
+                      { key: 'medium', label: 'Medium', style: 'border-amber-200 text-amber-800 bg-amber-50' },
+                      { key: 'low', label: 'Low', style: 'border-emerald-200 text-emerald-800 bg-emerald-50' }
                     ].map((p) => (
                       <button
                         key={p.key}
                         type="button"
+                        disabled={isUrgent}
                         onClick={() => setPriority(p.key)}
-                        className={`py-2 rounded-xl border text-xs font-bold transition ${
-                          priority === p.key ? p.style + ' shadow-md' : 'bg-white/5 border-white/10 text-slate-400'
+                        className={`py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+                          (isUrgent && p.key === 'high') || (!isUrgent && priority === p.key)
+                            ? p.style
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
                       >
                         {p.label}
@@ -302,26 +323,26 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
                 </div>
 
                 {/* Preferred Study Window */}
-                <div className="glass-card p-4 space-y-2">
-                  <label className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Tag className="w-4 h-4 text-cyan-400" />
-                    Preferred Study Time Window:
+                <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Tag className="w-4 h-4 text-indigo-600" />
+                    Target Time Window:
                   </label>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {[
-                      { id: 'Morning', label: '☀️ Morning (7AM-12PM)' },
-                      { id: 'Afternoon', label: '🌤️ Afternoon (12PM-5PM)' },
-                      { id: 'Evening', label: '🌙 Evening (5PM-9PM)' },
-                      { id: 'Night', label: '🌌 Night (8PM-11PM)' }
+                      { id: 'Morning', label: '☀️ Morning' },
+                      { id: 'Afternoon', label: '🌤️ Afternoon' },
+                      { id: 'Evening', label: '🌙 Evening' },
+                      { id: 'Night', label: '🌌 Night' }
                     ].map((w) => (
                       <button
                         key={w.id}
                         type="button"
                         onClick={() => setTimePreference(w.id)}
-                        className={`py-1.5 px-2 rounded-lg border text-left transition ${
+                        className={`py-1.5 px-2 rounded-md border text-left font-medium transition cursor-pointer ${
                           timePreference === w.id
-                            ? 'bg-purple-600/40 border-purple-400 text-white font-bold'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-900 font-bold'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
                       >
                         {w.label}
@@ -332,11 +353,44 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
 
               </div>
 
-              <div className="pt-4 flex items-center justify-between">
+              {/* DYNAMIC URGENT REPLANNING TOGGLE CARD */}
+              <div className={`p-4 rounded-xl border transition ${
+                isUrgent ? 'border-red-300 bg-red-50/70' : 'border-slate-200 bg-slate-50/60'
+              }`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isUrgent}
+                    onChange={(e) => {
+                      setIsUrgent(e.target.checked);
+                      if (e.target.checked) setPriority('high');
+                    }}
+                    className="mt-0.5 w-4 h-4 accent-red-600 rounded cursor-pointer"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                        <Zap className={`w-3.5 h-3.5 ${isUrgent ? 'text-red-600 fill-current' : 'text-slate-400'}`} />
+                        Enable Dynamic Urgent Replanning
+                      </span>
+                      {isUrgent && (
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">
+                          Urgent Mode Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                      Automatically schedules this goal with immediate top priority. If calendar slots are occupied, existing lower-priority tasks will be bumped and dynamically rescheduled to alternate slots.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="btn-secondary text-xs px-4 py-2 flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Back
@@ -346,19 +400,9 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
                   type="button"
                   onClick={handleGeneratePlan}
                   disabled={isGenerating}
-                  className="btn-primary text-sm px-6 py-2.5 flex items-center gap-2"
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                 >
-                  {isGenerating ? (
-                    <>
-                      <Sparkles className="w-4 h-4 animate-spin text-purple-300" />
-                      Generating AI Syllabus...
-                    </>
-                  ) : (
-                    <>
-                      Generate AI Learning Roadmap
-                      <Sparkles className="w-4 h-4" />
-                    </>
-                  )}
+                  {isGenerating ? 'Generating Roadmap...' : 'Generate Roadmap →'}
                 </button>
               </div>
             </div>
@@ -366,46 +410,53 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
 
           {/* STEP 3: Roadmap Preview & Editing */}
           {step === 3 && planData && (
-            <div className="space-y-5 animate-fadeIn">
+            <div className="space-y-4">
               
-              {/* Summary Stats Banner */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/60 via-indigo-950/60 to-slate-900/60 border border-purple-500/40 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              {/* Summary Stats */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
                 <div>
-                  <div className="text-[10px] text-purple-300 uppercase font-semibold">Total Commitment</div>
-                  <div className="text-xl font-extrabold text-white font-mono">{planData.total_hours} hrs</div>
+                  <div className="text-[10px] text-slate-500 uppercase font-semibold">Commitment</div>
+                  <div className="text-base font-bold text-slate-900 font-mono">{planData.total_hours} hrs</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-purple-300 uppercase font-semibold">Duration</div>
-                  <div className="text-xl font-extrabold text-purple-200 font-mono">{planData.num_days} Days</div>
+                  <div className="text-[10px] text-slate-500 uppercase font-semibold">Duration</div>
+                  <div className="text-base font-bold text-slate-900 font-mono">{planData.num_days} Days</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-purple-300 uppercase font-semibold">Daily Hours</div>
-                  <div className="text-xl font-extrabold text-indigo-300 font-mono">{planData.hours_per_day} h / day</div>
+                  <div className="text-[10px] text-slate-500 uppercase font-semibold">Daily Budget</div>
+                  <div className="text-base font-bold text-slate-900 font-mono">{planData.hours_per_day} h / day</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-purple-300 uppercase font-semibold">Finish Target</div>
-                  <div className="text-xs font-bold text-emerald-400 mt-1">{planData.target_finish_date}</div>
+                  <div className="text-[10px] text-slate-500 uppercase font-semibold">Target Finish</div>
+                  <div className="text-xs font-bold text-emerald-700 mt-1">{planData.target_finish_date}</div>
                 </div>
               </div>
 
+              {isUrgent && (
+                <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-900 flex items-center gap-2 font-medium">
+                  <Zap className="w-4 h-4 text-red-600 flex-shrink-0 fill-current" />
+                  <span>Dynamic Urgent Replanning will take effect upon confirmation.</span>
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-purple-400" />
-                    Generated AI Daily Syllabus Checklist ({modules.length} Modules):
+                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-indigo-600" />
+                    Daily Syllabus Checklist ({modules.length} Modules):
                   </h3>
-                  <span className="text-[11px] text-slate-400">
-                    💡 Click any title to customize your daily focus
+                  <span className="text-[11px] text-slate-500">
+                    Editable module titles
                   </span>
                 </div>
 
-                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 border border-white/10 rounded-xl p-2 bg-slate-950/50">
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 border border-slate-200 rounded-xl p-2 bg-slate-50">
                   {modules.map((mod, idx) => (
                     <div
                       key={idx}
-                      className="p-2.5 rounded-lg bg-white/5 border border-white/5 hover:border-purple-500/30 transition flex items-center gap-3"
+                      className="p-2 rounded-lg bg-white border border-slate-200 hover:border-slate-300 transition flex items-center gap-2 text-xs"
                     >
-                      <span className="w-7 h-7 rounded-lg bg-purple-900/50 border border-purple-500/30 text-purple-300 font-mono font-bold text-xs flex items-center justify-center flex-shrink-0">
+                      <span className="w-6 h-6 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-mono font-bold text-[11px] flex items-center justify-center flex-shrink-0">
                         D{mod.day_number}
                       </span>
 
@@ -413,10 +464,10 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
                         type="text"
                         value={mod.title}
                         onChange={(e) => handleModuleTitleChange(idx, e.target.value)}
-                        className="glass-input text-xs w-full text-white bg-transparent border-transparent hover:border-white/20 focus:border-purple-500 focus:bg-slate-900"
+                        className="text-xs w-full text-slate-900 p-1 bg-transparent border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded"
                       />
 
-                      <span className="text-[10px] font-mono text-slate-400 px-2 py-0.5 rounded bg-white/5 flex-shrink-0">
+                      <span className="text-[10px] font-mono text-slate-500 px-2 py-0.5 rounded bg-slate-100 flex-shrink-0 font-medium">
                         {mod.target_day} ({mod.estimated_duration}m)
                       </span>
                     </div>
@@ -424,11 +475,11 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
                 </div>
               </div>
 
-              <div className="pt-3 flex items-center justify-between">
+              <div className="pt-2 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="btn-secondary text-xs px-4 py-2 flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Adjust Parameters
@@ -436,19 +487,23 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
 
                 <button
                   type="button"
-                  onClick={handleConfirmBatchSchedule}
+                  onClick={handleConfirmSchedule}
                   disabled={isScheduling}
-                  className="btn-primary text-sm px-6 py-2.5 flex items-center gap-2 shadow-lg shadow-purple-600/30"
+                  className={`px-5 py-2 rounded-lg text-white font-medium text-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-xs ${
+                    isUrgent ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
                 >
                   {isScheduling ? (
+                    'Scheduling Plan...'
+                  ) : isUrgent ? (
                     <>
-                      <Sparkles className="w-4 h-4 animate-spin" />
-                      Scheduling {modules.length} Tasks with ML...
+                      <Zap className="w-4 h-4 fill-current" />
+                      Confirm & Dynamically Replan ({modules.length} Days)
                     </>
                   ) : (
                     <>
                       <Check className="w-4 h-4" />
-                      Confirm & Schedule All {modules.length} Days with ML
+                      Confirm & Schedule All {modules.length} Days
                     </>
                   )}
                 </button>
@@ -458,26 +513,26 @@ export default function LearningGoalWizardModal({ isOpen, onClose, initialTopic,
 
           {/* STEP 4: Success Confirmation */}
           {step === 4 && (
-            <div className="text-center py-8 space-y-4 animate-fadeIn">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 mx-auto flex items-center justify-center animate-bounce">
-                <CheckCircle2 className="w-10 h-10" />
+            <div className="text-center py-6 space-y-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7" />
               </div>
 
-              <h3 className="text-xl font-bold text-white">
-                Multi-Day Learning Schedule Activated!
+              <h3 className="text-lg font-bold text-slate-900">
+                {isUrgent ? 'Dynamic Urgent Replanning Complete!' : 'Goal Roadmap Scheduled!'}
               </h3>
 
-              <p className="text-xs text-slate-300 max-w-md mx-auto">
-                Your <strong className="text-purple-300">{numDays}-day plan for "{topic}"</strong> ({hoursPerDay}h/day) has been scheduled across your calendar using ML optimization.
+              <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                Your <strong className="text-indigo-700 font-semibold">{numDays}-day schedule for "{topic}"</strong> has been optimized and assigned across calendar slots.
               </p>
 
-              <div className="pt-4 flex justify-center">
+              <div className="pt-3 flex justify-center">
                 <button
                   type="button"
                   onClick={handleResetAndClose}
-                  className="btn-primary text-sm px-6 py-2.5"
+                  className="px-5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs cursor-pointer"
                 >
-                  View Updated Calendar & Schedule
+                  View Updated Calendar & To-Do List
                 </button>
               </div>
             </div>
