@@ -1,10 +1,10 @@
-# ⚡ DayMind AI — Machine Learning Productivity Scheduler
+# DayMind AI — Machine Learning Productivity Scheduler
 
 DayMind AI is an **AI-powered productivity application** built for a **Machine Learning subject project**. It converts user task concerns into an optimized weekly calendar and day-by-day to-do schedule using 3 trained Machine Learning models and performs **real-time dynamic replanning** whenever an urgent task arrives.
 
 ---
 
-## ✨ Features & Architecture
+## Features & Architecture
 
 1. **Machine Learning Pipeline (Scikit-Learn)**:
    - **NLP Text Category Classifier**: Uses TF-IDF Vectorization + Logistic Regression to classify raw free-text input into categories (`academic`, `work`, `health`, `personal`, `learning`) with live confidence scoring.
@@ -27,7 +27,7 @@ DayMind AI is an **AI-powered productivity application** built for a **Machine L
 
 ---
 
-## 🚀 How to Run Locally & Host
+## How to Run Locally & Host
 
 ### Quick Start (Local)
 
@@ -51,7 +51,7 @@ To retrain models from `task_dataset.csv`:
 
 ---
 
-## 🌐 Hosting & Sharing with Others
+## Hosting & Sharing with Others
 
 Since the app combines FastAPI and pre-built static React assets, you can host it easily:
 
@@ -67,7 +67,7 @@ Since the app combines FastAPI and pre-built static React assets, you can host i
 
 ---
 
-## 📊 Technical Presentation Summary (For ML Subject Evaluation)
+## Technical Presentation Summary (For ML Subject Evaluation)
 
 | Component | Technology / Algorithm | Key Performance Metric |
 | :--- | :--- | :--- |
